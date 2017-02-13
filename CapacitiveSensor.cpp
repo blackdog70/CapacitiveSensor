@@ -22,7 +22,7 @@
 // Constructor /////////////////////////////////////////////////////////////////
 // Function that handles the creation and setup of instances
 
-CapacitiveSensor::CapacitiveSensor(uint8_t sendPin, uint8_t receivePin)
+CapacitiveSensor::CapacitiveSensor(uint8_t sendPin)
 {
 	// initialize this instance's variables
 	// Serial.begin(9600);		// for debugging
@@ -39,65 +39,71 @@ CapacitiveSensor::CapacitiveSensor(uint8_t sendPin, uint8_t receivePin)
 
 #ifdef NUM_DIGITAL_PINS
 	if (sendPin >= NUM_DIGITAL_PINS) error = -1;
-	if (receivePin >= NUM_DIGITAL_PINS) error = -1;
 #endif
 
 	pinMode(sendPin, OUTPUT);						// sendpin to OUTPUT
-	pinMode(receivePin, INPUT);						// receivePin to INPUT
 	digitalWrite(sendPin, LOW);
 
 	sBit =  digitalPinToBitMask(sendPin);			// get send pin's ports and bitmask
 	sReg = PIN_TO_BASEREG(sendPin);					// get pointer to output register
-
-	rBit = digitalPinToBitMask(receivePin);			// get receive pin's ports and bitmask
-	rReg = PIN_TO_BASEREG(receivePin);
 
 	// get pin mapping and port for receive Pin - from digital pin functions in Wiring.c
 	leastTotal = 0x0FFFFFFFL;   // input large value for autocalibrate begin
 	lastCal = millis();         // set millis for start
 }
 
+void CapacitiveSensor::receivePin(uint8_t receivePin)
+{
+#ifdef NUM_DIGITAL_PINS
+	if (receivePin >= NUM_DIGITAL_PINS) error = -1;
+#endif
+	pinMode(receivePin, INPUT);						// receivePin to INPUT
+	rBit = digitalPinToBitMask(receivePin);			// get receive pin's ports and bitmask
+	rReg = PIN_TO_BASEREG(receivePin);
+}
+
 // Public Methods //////////////////////////////////////////////////////////////
 // Functions available in Wiring sketches, this library, and other libraries
 
-long CapacitiveSensor::capacitiveSensor(uint8_t samples)
+long CapacitiveSensor::read(uint8_t _receivePin, uint8_t samples)
 {
 	total = 0;
 	if (samples == 0) return 0;
 	if (error < 0) return -1;            // bad pin
 
+	receivePin(_receivePin);
 
 	for (uint8_t i = 0; i < samples; i++) {    // loop for samples parameter - simple lowpass filter
 		if (SenseOneCycle() < 0)  return -2;   // variable over timeout
-}
+	}
 
-		// only calibrate if time is greater than CS_AutocaL_Millis and total is less than 10% of baseline
-		// this is an attempt to keep from calibrating when the sensor is seeing a "touched" signal
+	// only calibrate if time is greater than CS_AutocaL_Millis and total is less than 10% of baseline
+	// this is an attempt to keep from calibrating when the sensor is seeing a "touched" signal
 
-		if ( (millis() - lastCal > CS_AutocaL_Millis) && abs(total  - leastTotal) < (int)(.10 * (float)leastTotal) ) {
+	if ( (millis() - lastCal > CS_AutocaL_Millis) && abs(total  - leastTotal) < (int)(.10 * (float)leastTotal) ) {
 
-			// Serial.println();               // debugging
-			// Serial.println("auto-calibrate");
-			// Serial.println();
-			// delay(2000); */
+		// Serial.println();               // debugging
+		// Serial.println("auto-calibrate");
+		// Serial.println();
+		// delay(2000); */
 
-			leastTotal = 0x0FFFFFFFL;          // reset for "autocalibrate"
-			lastCal = millis();
-		}
-		/*else{                                // debugging
-			Serial.print("  total =  ");
-			Serial.print(total);
+		leastTotal = 0x0FFFFFFFL;          // reset for "autocalibrate"
+		lastCal = millis();
+	}
+	/*else{                                // debugging
+		Serial.print("  total =  ");
+		Serial.print(total);
 
-			Serial.print("   leastTotal  =  ");
-			Serial.println(leastTotal);
+		Serial.print("   leastTotal  =  ");
+		Serial.println(leastTotal);
 
-			Serial.print("total - leastTotal =  ");
-			x = total - leastTotal ;
-			Serial.print(x);
-			Serial.print("     .1 * leastTotal = ");
-			x = (int)(.1 * (float)leastTotal);
-			Serial.println(x);
-		} */
+		Serial.print("total - leastTotal =  ");
+		x = total - leastTotal ;
+		Serial.print(x);
+		Serial.print("     .1 * leastTotal = ");
+		x = (int)(.1 * (float)leastTotal);
+		Serial.println(x);
+	} */
 
 	// routine to subtract baseline (non-sensed capacitance) from sensor return
 	if (total < leastTotal) leastTotal = total;                 // set floor value to subtract from sensed value
@@ -105,11 +111,13 @@ long CapacitiveSensor::capacitiveSensor(uint8_t samples)
 
 }
 
-long CapacitiveSensor::capacitiveSensorRaw(uint8_t samples)
+long CapacitiveSensor::readRaw(uint8_t _receivePin, uint8_t samples)
 {
 	total = 0;
 	if (samples == 0) return 0;
 	if (error < 0) return -1;                  // bad pin - this appears not to work
+
+	receivePin(_receivePin);
 
 	for (uint8_t i = 0; i < samples; i++) {    // loop for samples parameter - simple lowpass filter
 		if (SenseOneCycle() < 0)  return -2;   // variable over timeout
